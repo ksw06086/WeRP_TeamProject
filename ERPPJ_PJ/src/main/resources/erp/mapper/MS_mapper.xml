@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.pj.erp.persistence.MS_DAO">
+	<!-- 기획서 등록 -->
+ 	<insert id="insertPlan" parameterType = "com.pj.erp.vo.MS.MS_plan">
+		insert into plan_list_tbl(plan_code, plan_name, username, position_code, plan_regdate, plan_startdate, plan_enddate, plan_objective, plan_state, plan_proposal)
+		values(ms_pc_seq.nextval, #{plan_name}, #{username} ,#{position_code} , #{plan_regdate}, #{plan_startdate}, #{plan_enddate}, #{plan_objective}, #{plan_state}, #{plan_proposal}) 
+	</insert>
+	
+	<!-- 기획서 목록  -->
+	<select id="getPlanList" resultType="com.pj.erp.vo.MS.MS_plan" parameterType="String">
+		SELECT * FROM ms_plan_script_view where username like '%'||#{username}||'%' 
+	</select>
+	
+	<!-- 기획서 상세조회 -->
+	<select id="getPlanDetail" resultType="com.pj.erp.vo.MS.MS_plan" parameterType="String">
+		select * from plan_list_tbl where plan_code like '%'||#{plan_code}||'%' 
+	</select>
+	
+	<!-- 기획서 수정 -->
+	<update id="updatePlan" parameterType="com.pj.erp.vo.MS.MS_plan">
+		update plan_list_tbl 
+			set plan_name=#{plan_name}, username=#{username}, position_code=#{position_code}, plan_startdate=#{plan_startdate}, plan_enddate=#{plan_enddate}, plan_objective=#{plan_objective}, plan_state=#{plan_state}, plan_proposal=#{plan_proposal}
+			where plan_code=#{plan_code}
+	</update>
+	
+	<!-- 기획서 삭제 -->
+	<delete id="deletePlan" parameterType="String">
+		delete from plan_list_tbl where plan_code=#{plan_code}
+	</delete>
+	
+	<!-- e_name(사원명)검색  -->
+	<select id="selectEname" resultType="int" parameterType="String" >
+		select COUNT(*) from users where e_name like '%'||#{e_name}||'%'
+	</select>
+	
+	<!-- 검색 목록  -->
+	<select id="getUsernameList" resultType="com.pj.erp.vo.HR.HR_VO" parameterType="String">
+		select username, e_name, department_code, position_code from users where e_name like '%'||#{e_name}||'%'
+	</select>
+	
+</mapper>

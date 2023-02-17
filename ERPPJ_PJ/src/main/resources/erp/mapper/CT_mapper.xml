@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace="com.pj.erp.persistence.CT_DAO">
+
+
+	<!-- 부서코드 및 부서정보 가져오기 -->
+	<select id="selectDP" resultType="com.pj.erp.vo.CT.CT_Depart_VO">
+		select department_code, department_name 
+		from department_tbl
+	</select>
+	
+	<!-- 상세계정테이블에 등록하기 -->
+	<insert id="InsertAC" parameterType="com.pj.erp.vo.FT.FT_Detail_ac">
+		Insert Into detail_ac_tbl(accounts_code, detail_ac_code, account_name, di_table)
+		Values(#{accounts_code}, lpad(DETAIL_AC_SEQ.nextval,10,'04ta_'), #{account_name}, 'COMPUTER_EQUIPMENT_TBL')
+		
+	</insert>
+	
+	<!-- 고정자산 입력 -->
+	<insert id="InsertCT" parameterType="com.pj.erp.vo.CT.CT_VO">
+		Insert into computer_equipment_tbl(ceq_code, ceq_name, ceq_type, ceq_acquire_date, department_code, ceq_location, ceq_prime_cost, ceq_durable, ceq_depreciation, ceq_depreciation_type)
+		Values(lpad(DETAIL_AC_SEQ.CURRVAL,10,'04ta_'), #{ceq_name}, #{ceq_type}, #{ceq_acquire_date}, #{department_code}, #{ceq_location}, #{ceq_prime_cost}, #{ceq_durable}, #{ceq_depreciation}, #{ceq_depreciation_type})
+	</insert>
+	
+	<!-- 고정자산 목록 갯수 구하기 -->
+	<select id="selectCTcnt" resultType="int">
+		Select Count(*) From computer_equipment_tbl
+		Where ceq_type = #{cep_type}
+	</select>
+	
+	<!-- 고정자산 목록  type-->
+	<select id="SelectCT" resultType="com.pj.erp.vo.CT.CT_VO">
+		select * from computer_equirpment_view
+		Where ceq_type = #{ceq_type}
+	</select>
+
+	<!-- 고정자산 목록 code-->
+	<select id="SelectCode" resultType="com.pj.erp.vo.CT.CT_VO">
+		select * from computer_equirpment_view
+		Where ceq_code = #{ceq_code}
+	</select>
+	
+	<!-- 고정자산 전체목록 -->
+	<select id="selectAllCT" resultType="com.pj.erp.vo.CT.CT_VO">
+		Select * from computer_equirpment_view
+	</select>
+	
+	<!-- 고정자산 수정 -->
+	<update id="updateCT" parameterType="com.pj.erp.vo.CT.CT_VO">
+		Update computer_equipment_tbl
+		Set ceq_name = #{ceq_name}, ceq_type = #{ceq_type}, ceq_acquire_date = #{ceq_acquire_date},
+			department_code = #{department_code}, ceq_location = #{ceq_location}, ceq_prime_cost = #{ceq_prime_cost},
+			ceq_durable = #{ceq_durable}, ceq_depreciation = #{ceq_depreciation}, ceq_depreciation_type = #{ceq_depreciation_type}
+		Where ceq_code = #{ceq_code}
+	</update>
+	
+	<!-- 고정자산 폐기처리 -->
+	<update id="deleteCT" parameterType="com.pj.erp.vo.CT.CT_VO">
+		Update computer_equipment_tbl
+		Set ceq_type = '폐기'
+		Where ceq_code = #{ceq_code}
+	</update>
+	
+	<!-- AS(고장) 등록 -->
+	<insert id="insertAS" parameterType="com.pj.erp.vo.CT.CT_AS_VO">
+		Insert into computer_as_tbl(cas_code, department_code, username, cas_title, cas_content, cas_uri, cas_date, cas_result, cas_state)
+		Values(lpad(asnumber.nextval,7,'AS_'), #{department_code}, #{username}, #{cas_title},
+			#{cas_content}, #{cas_uri}, sysdate, '미처리', 1)
+	</insert>
+	
+	<!-- AS(고장) 목록 -->
+	<select id="selectAS" resultType="com.pj.erp.vo.CT.CT_AS_VO">
+		Select * from computer_as_tbl
+		Where cas_state = #{cas_state}
+	</select>
+	
+	<!-- AS 목록 준선이형 버전 -->
+	<select id="selectAS2" parameterType="java.util.Map" resultType="com.pj.erp.vo.CT.CT_AS_VO">
+		Select c.cas_code as cas_code, c.department_code as department_code, 
+				c.username as username, c.cas_title as cas_title, c.cas_date as cas_date, d.department_name as department_name 
+		From computer_as_tbl c Join department_tbl d
+		On c.department_code = d.department_code
+		Where cas_state = #{cas_state}
+	</select>
+	
+	<!-- AS 목록 코드로 가져오기 -->
+	<select id="selectAScode" resultType="com.pj.erp.vo.CT.CT_AS_VO">
+		Select * From computer_as_tbl
+		Where cas_code = #{cas_code}
+	</select>
+	
+	<!-- AS수리 시작 update -->
+	<update id="updateAS" parameterType="String">
+		Update computer_as_tbl
+		Set cas_state = 2
+		Where cas_code = #{cas_code}
+	</update>
+	
+	<!-- AS 수리 완료 -->
+	<update id="completeAS" parameterType="java.util.Map">
+		Update computer_as_tbl
+		Set cas_result = #{cas_result}, cas_state = 3
+		Where cas_code = #{cas_code}
+	</update>
+	
+	<!-- 부서코드를 통한 전산설비목록 갯수 -->
+	<select id="selectCEQ" resultType="int">
+		select Count(*) from computer_equipment_tbl
+		Where department_code = #{department_code}
+	</select>
+	
+	<!-- 부서코드를 통한 전산설비목록 가져오기 -->
+	<select id="selectCeqS" parameterType="String" resultType="com.pj.erp.vo.CT.CT_VO">
+		select ceq_code, ceq_name, department_code From computer_equipment_tbl
+		Where department_code = #{department_code}
+	</select>
+	
+	<!-- 수리일지등록 -->
+	<insert id="InsertRP" parameterType="com.pj.erp.vo.CT.CT_RP_VO">
+		Insert Into repair_record_tbl(rr_code, rr_reg_date, rr_title, rr_content, ceq_code, rr_repair_type, rr_cost, rr_state)
+		Values(lpad(asnumber.nextval,7,'RP_'), sysdate, #{rr_title}, #{rr_content}, #{ceq_code}, #{rr_repair_type}, #{rr_cost}, 1)
+	</insert>
+	
+	<!-- 수리타입으로 수리일지 조회 -->
+	<select id="selectRPC" resultType="com.pj.erp.vo.CT.CT_RP_VO">
+		Select * from repair_view
+		Where rr_repair_type = #{rr_repair_type}
+		And rr_state != 3
+	</select>
+	
+	<!-- 수리코드로 수리일지 조회 -->
+	<select id="updateFormRP" resultType="com.pj.erp.vo.CT.CT_RP_VO">
+		Select * from repair_view
+		Where rr_code = #{rr_code}
+	</select>
+	
+	<!-- 수리일지 수리완료(수정완료) -->
+	<update id="updateRP" parameterType="com.pj.erp.vo.CT.CT_RP_VO">
+		Update repair_record_tbl
+		Set rr_title = #{rr_title}, rr_content = #{rr_content}, rr_repair_type = #{rr_repair_type},
+			rr_cost = #{rr_cost}, rr_state = 2
+		Where rr_code = #{rr_code}
+	</update>
+	
+	<!-- 수리일지 삭제 -->
+	<update id="deleteRP" parameterType="String">
+		Update repair_record_tbl
+		Set rr_state = 3
+		Where rr_code = #{rr_code}
+	</update>
+	
+	<!-- 수리일지 폐기목록 가져오기 -->
+	<select id="delRpList" parameterType="java.util.Map" resultType="com.pj.erp.vo.CT.CT_RP_VO">
+		Select * From repair_view
+		Where department_name like '%'||#{department_name}||'%'
+		And rr_code like '%'||#{rr_code}||'%'
+		And rr_title like '%'||#{rr_title}||'%'
+		And rr_state = 3
+	</select>
+	
+	<!-- 수리일지 폐기취소 -->
+	<update id="RPdeleteRemove" parameterType="String">
+		Update repair_record_tbl
+		Set rr_state = 2
+		Where rr_code = #{rr_code}
+	</update>
+	
+	<!-- A/S 수정 폼 부서가져오기 -->
+	<select id="selectDEPTVO" resultType="com.pj.erp.vo.CT.CT_Depart_VO">
+		Select * from department_tbl
+	</select>
+</mapper>

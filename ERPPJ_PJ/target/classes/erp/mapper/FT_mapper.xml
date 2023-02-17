@@ -1,0 +1,1915 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace = "com.pj.erp.persistence.FT_DAO">
+	<!-- 상세계정입력 -->
+	<insert id = "FT_Detailinput" parameterType="java.util.Map">
+		insert into detail_ac_tbl(accounts_code, detail_ac_code, account_name, di_table)
+		values('qa_00400','01qa_00400_'||dept_budget_seq.nextval,'예산('||#{subject}||')' ,'BUDGET_TBL')
+	</insert>
+	
+	<!-- 예산신청입력 -->
+	<insert id = "FT_applyinput" parameterType="java.util.Map">
+		insert into budget_tbl(budget_code, department_code, budget_subject, budget_amount, eas_code, e_approval_code)
+		values('01qa_00400_'||dept_budget_seq.currval,#{dept} ,'예산('||#{subject}||#{purpose}||')' ,#{money},'1','1000')
+	</insert>
+
+	<!-- 날짜 검색 분개 가져오기 -->
+	<select id="FT_DateChitCnt" parameterType="java.util.Map" resultType="int">
+		select count(journal_number) 
+		from journal_record_tbl
+		where to_char(journal_date, 'yyyy-MM-dd') = #{year} || '-' || #{month} || '-' || #{day}
+	</select>
+	
+	<!-- 거래번호 최고값 -->
+	<select id="FT_ChitMaxNumber" parameterType="java.util.Map" resultType="int">
+		select journal_number 
+		from journal_record_tbl
+		where to_char(journal_date, 'yyyy-MM-dd') = #{year} || '-' || #{month} || '-' || #{day}
+		and rownum = 1
+		order by 1 asc
+	</select>
+	
+	<!-- 분개 데이터 갯수 가져오기 -->
+	<select id="FT_chitDataCnt" parameterType="java.util.Map" resultType="int">
+		select count(journal_code) 
+		from journal_record_tbl
+		where to_char(journal_date, 'yyyy-MM-dd') = #{year} || '-' || #{month} || '-' || #{day}
+		and journal_number = #{chkno}
+		<if test="state == 1">
+			and username is null
+		</if>
+		<if test="state == 2">
+			and username is not null
+		</if>
+	</select>
+	
+	<!-- 분개 데이터 가져오기 -->
+	<select id="FT_chitDataLoad" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Chit">
+		select j.journal_code, j.journal_number, j.journal_date, de.detail_ac_code, de.account_name,
+		c.customer_code, c.customer_name, j.debtor_value, j.creditor_value, j.l_count_value, j.r_count_value, j.journal_abstract,
+		j.jr_state, j.last_update, j.last_modi_user, writer.e_name wname, j.username
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, users writer
+		where j.detail_ac_code = de.detail_ac_code
+		and j.customer_code = c.customer_code
+		and writer.username(+) = j.last_modi_user
+		and to_char(j.journal_date, 'yyyy-MM-dd') = #{year} || '-' || #{month} || '-' || #{day}
+		and j.journal_number = #{chkno}
+		<if test="state == 1">
+			and j.username is null
+		</if>
+		<if test="state == 2">
+			and j.username is not null
+		</if>
+	</select>
+	
+	<!-- 분개 key 가져오기 -->
+	<select id="FT_chitKeySelect" resultType="String">
+		select JOURNAL_CODE from journal_record_tbl
+		where ROWNUM = 1
+		ORDER BY JOURNAL_CODE desc
+	</select>
+	
+	<!-- 전표입력 -->
+	<insert id="FT_chitInsert" parameterType = "java.util.Map">
+		insert into journal_record_tbl(JOURNAL_CODE, JOURNAL_NUMBER, JOURNAL_DATE,
+		DETAIL_AC_CODE, CUSTOMER_CODE, DEBTOR_VALUE, CREDITOR_VALUE, L_COUNT_VALUE, R_COUNT_VALUE,
+		JOURNAL_ABSTRACT, JR_STATE, LAST_UPDATE, LAST_MODI_USER, USERNAME)
+		values(journal_seq.nextval, #{number}, TO_DATE(#{date}), #{subjectcode}, #{accountcode},
+		#{leftprice}, #{rightprice}, #{leftcount}, #{rightcount}, #{text}, #{type},
+		#{updateday}, #{wname}, #{fname}) 
+	</insert>
+	
+	<!-- 전표수정 -->
+	<update id="FT_chitupdate" parameterType = "java.util.Map">
+		update journal_record_tbl
+		set JOURNAL_NUMBER = #{number}, JOURNAL_DATE = #{date}, DETAIL_AC_CODE = #{subjectcode},
+		CUSTOMER_CODE = #{accountcode}, DEBTOR_VALUE = #{leftprice}, CREDITOR_VALUE = #{rightprice},
+		L_COUNT_VALUE = #{leftcount}, R_COUNT_VALUE = #{rightcount}, JOURNAL_ABSTRACT = #{text},
+		JR_STATE = #{type}, LAST_UPDATE = #{updateday}, LAST_MODI_USER = #{wname}
+		<if test="fname != null">
+			, USERNAME = #{fname}
+		</if>
+		where JOURNAL_CODE = #{key}
+	</update>
+	
+	<!-- 전표삭제 -->
+	<delete id="FT_chitDelete" parameterType = "java.util.Map">
+		delete from journal_record_tbl
+		where JOURNAL_CODE = #{key}
+	</delete>
+
+	<!-- 사업자 번호 추가 -->
+	<insert id="FT_LicenseInsert" parameterType = "com.pj.erp.vo.FT.FT_Account">
+		insert into b_license_tbl(license_number, bs_name, bs_master, bs_startdate,
+		bs_number, bs_address, bs_address2, bs_condition, bs_line, license_scanfile)
+		values(#{license_number}, #{bs_name}, #{bs_master}, #{bs_startdate},
+		#{bs_number}, #{bs_address}, #{bs_address2}, #{bs_condition}, #{bs_line}, #{license_scanfile})
+	</insert>
+	
+	<!-- 거래처 추가 -->
+	<insert id="FT_AccountInsert" parameterType = "com.pj.erp.vo.FT.FT_Account">
+		insert into customer_list_tbl(customer_code, license_number, customer_name, branch_name,
+		customer_credit, deal_state)
+		values('CUS_' || customer_seq.nextval, #{license_number}, #{customer_name}, #{branch_name},
+		#{customer_credit}, #{deal_state})
+	</insert>
+	
+	<!-- 사업자 번호 수정 -->
+	<update id="FT_LicenseUpdate" parameterType = "java.util.Map">
+		update b_license_tbl
+		set bs_name = #{bsName}, bs_master = #{bsMaster}, bs_startdate = #{bsStartdate},
+		bs_number = #{bsNumber}, bs_address = #{bsAddress}, bs_address2 = #{bsAddress2}, bs_condition = #{bsCondition},
+		bs_line = #{bsLine}, license_scanfile = #{scanfile}
+		where license_number = #{licenseNumber}
+	</update>
+	
+	<!-- 거래처 수정 -->
+	<update id="FT_AccountUpdate" parameterType = "java.util.Map">
+		update customer_list_tbl
+		set customer_name = #{customerName}, branch_name = #{branchName},
+		customer_credit = #{customerCredit}, deal_state = #{state}
+		where customer_code = #{customerCode}
+	</update>
+	
+	<!-- 사업자 번호 삭제 -->
+	<delete id="FT_LicenseDelete" parameterType = "java.util.Map">
+		delete from b_license_tbl
+		where license_number = #{licenseNumber}
+	</delete>
+	
+	<!-- 거래처 삭제 -->
+	<delete id="FT_AccountDelete" parameterType = "java.util.Map">
+		delete from customer_list_tbl
+		where customer_code = #{customerCode}
+	</delete>
+	
+	<!-- 건물 추가 -->
+	<insert id="FT_BuildingPrevInsert" parameterType = "com.pj.erp.vo.FT.FT_Building">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME, di_table)
+		values ('ta_00300', 'BD_' || building_seq.nextval, #{buildingName}, 'BUILDING_TBL')
+	</insert>
+	
+	<insert id="FT_BuildingInsert" parameterType = "com.pj.erp.vo.FT.FT_Building">
+		insert into building_tbl(building_code, department_code, building_name, building_address,
+		building_regdate, building_cost, use_year, use_yn)
+		values('BD_' || building_seq.currval, #{departmentCode}, #{buildingName}, #{address},
+		#{buyDate}, #{buyPrice}, #{thinkYear}, #{gamga})
+	</insert>
+	
+	<!-- 건물 수정 -->
+	<update id="FT_BuildingPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNT_NAME =  #{buildingName}
+		where DETAIL_AC_CODE = #{buildingCode}
+	</update>
+	
+	<update id="FT_BuildingUpdate" parameterType = "java.util.Map">
+		update building_tbl
+		set department_code = #{departmentCode}, building_name = #{buildingName},
+		building_address = #{Address}, building_regdate = #{buyDate},
+		building_cost = #{buyPrice}, use_year = #{thinkYear}, use_yn = #{gamga}
+		where building_code = #{buildingCode}
+	</update>
+	
+	<!-- 건물 삭제 -->
+	<delete id="FT_BuildingPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_BuildingDelete" parameterType = "java.util.Map">
+		delete from building_tbl
+		where building_code = #{key}
+	</delete>
+	
+	<!-- 건물 가져오기 -->
+	<select id="FT_BuildingAllSelect" resultType="com.pj.erp.vo.FT.FT_Building">
+		SELECT
+	    building_code buildingCode, b.department_code departmentCode, d.department_name departmentName, 
+	    building_name buildingName, building_address address,
+		building_regdate buyDate, building_cost buyPrice, use_year thinkYear, use_yn gamga
+		FROM building_tbl b, department_tbl d
+		where b.department_code = d.department_code
+	</select>
+	
+	<!-- 건물 한개 가져오기 -->
+	<select id="FT_BuildingOneSelect" parameterType="String" resultType="com.pj.erp.vo.FT.FT_Building">
+		SELECT
+	    building_code buildingCode, b.department_code departmentCode, d.department_name departmentName, 
+	    building_name buildingName, building_address Address,
+		building_regdate buyDate, building_cost buyPrice, use_year thinkYear, use_yn gamga
+		FROM building_tbl b, department_tbl d
+		where b.department_code = d.department_code
+		and b.building_code = #{srhval, jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 토지 추가 -->
+	<insert id="FT_LandPrevInsert" parameterType = "com.pj.erp.vo.FT.FT_Land">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME, di_table)
+		values ('ta_00200', 'LD_' || land_seq.nextval, #{landName}, 'LAND_TBL')
+	</insert>
+	
+	<insert id="FT_LandInsert" parameterType = "com.pj.erp.vo.FT.FT_Land">
+		insert into land_tbl(land_code, department_code, land_name, land_address,
+		land_regdate, land_cost, use_year, use_yn)
+		values('LD_' || land_seq.currval, #{departmentCode}, #{landName}, #{address},
+		#{buyDate}, #{buyPrice}, #{thinkYear}, #{gamga})
+	</insert>
+	
+	<!-- 토지 수정 -->
+	<update id="FT_LandPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNT_NAME =  #{landName}
+		where DETAIL_AC_CODE = #{landCode}
+	</update>
+	
+	<update id="FT_LandUpdate" parameterType = "java.util.Map">
+		update land_tbl
+		set department_code = #{departmentCode}, land_name = #{landName},
+		land_address = #{Address}, land_regdate = #{buyDate},
+		land_cost = #{buyPrice}, use_year = #{thinkYear}, use_yn = #{gamga}
+		where land_code = #{landCode}
+	</update>
+	
+	<!-- 토지 삭제 -->
+	<delete id="FT_LandPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_LandDelete" parameterType = "java.util.Map">
+		delete from land_tbl
+		where land_code = #{key}
+	</delete>
+	
+	<!-- 토지 가져오기 -->
+	<select id="FT_LandAllSelect" resultType="com.pj.erp.vo.FT.FT_Land">
+		SELECT
+	    land_code landCode, b.department_code departmentCode, d.department_name departmentName, 
+	    land_name landName, land_address address,
+		land_regdate buyDate, land_cost buyPrice, use_year thinkYear, use_yn gamga
+		FROM land_tbl b, department_tbl d
+		where b.department_code = d.department_code
+	</select>
+	
+	<!-- 토지 한개 가져오기 -->
+	<select id="FT_LandOneSelect" parameterType="String" resultType="com.pj.erp.vo.FT.FT_Land">
+		SELECT
+	    land_code landCode, b.department_code departmentCode, d.department_name departmentName, 
+	    land_name landName, land_address Address,
+		land_regdate buyDate, land_cost buyPrice, use_year thinkYear, use_yn gamga
+		FROM land_tbl b, department_tbl d
+		where b.department_code = d.department_code
+		and b.land_code = #{srhval, jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 적금 가져오기 -->
+	<select id="FT_SavingsSelect" resultType="com.pj.erp.vo.FT.FT_Savings">
+		SELECT
+		s.SA_CODE as savingsCode, d.ACCOUNT_NAME as savingsName, 
+		c.customer_code as accCode, c.customer_name as accName, a.ACCOUNTS_CODE as subjectCode,
+		a.ACCOUNTS_NAME as subjectName, s.sa_number as accountNo, s.sa_holder as accountHolder, s.sa_amount as devPrice
+		FROM detail_ac_tbl d, SAVING_ACCOUNT_TBL s, customer_list_tbl c, accounts_tbl a
+		where d.DETAIL_AC_CODE = s.sa_code
+		and d.ACCOUNTS_CODE = a.ACCOUNTS_CODE
+		and s.customer_code = c.customer_code
+		order by s.SA_CODE asc
+	</select>
+	
+	<!-- 적금 key 가져오기 -->
+	<select id="FT_SavingsKeySelect" resultType="String">
+		select sa_code from SAVING_ACCOUNT_TBL
+		where ROWNUM = 1
+		ORDER BY sa_code desc
+	</select>
+	
+	<!-- 적금 추가 -->
+	<insert id="FT_SavingsPrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME)
+		values (#{SubjectCode}, 'SA_' || savings_seq.nextval, #{savingsName})
+	</insert>
+	
+	<insert id="FT_SavingsInsert" parameterType = "java.util.Map">
+		insert into SAVING_ACCOUNT_TBL(SA_CODE, CUSTOMER_CODE, SA_NUMBER, SA_HOLDER, SA_AMOUNT)
+		values ('SA_' || savings_seq.currval, #{AccCode}, #{AccountNo}, #{AccountHolder}, #{DevPrice})
+	</insert>
+	
+	<!-- 적금수정 -->
+	<update id="FT_SavingsPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNTS_CODE = #{SubjectCode}, ACCOUNT_NAME = #{savingsName}
+		where DETAIL_AC_CODE = #{savingsCode}
+	</update>
+	
+	<update id="FT_SavingsUpdate" parameterType = "java.util.Map">
+		update SAVING_ACCOUNT_TBL
+		set CUSTOMER_CODE = #{AccCode}, SA_NUMBER = #{AccountNo}, SA_HOLDER = #{AccountHolder}, SA_AMOUNT = #{DevPrice}
+		where SA_CODE = #{savingsCode}
+	</update>
+	
+	<!-- 적금삭제 -->
+	<delete id="FT_SavingsPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_SavingsDelete" parameterType = "java.util.Map">
+		delete from SAVING_ACCOUNT_TBL
+		where SA_CODE = #{key}
+	</delete>
+	
+	<!-- 예금 가져오기 -->
+	<select id="FT_DepositAllSelect" resultType="com.pj.erp.vo.FT.FT_Deposit">
+		SELECT
+		b.BA_CODE as depositCode, a.account_name as depositName, 
+		c.customer_code as accCode, c.customer_name as accName, a.ACCOUNTS_CODE as subjectCode,
+		ac.ACCOUNTS_NAME as subjectName, b.ba_number as accountNo, b.ba_holder as accountHolder
+		FROM detail_ac_tbl a, bank_account_tbl b, customer_list_tbl c, accounts_tbl ac
+		where a.DETAIL_AC_CODE = b.ba_code
+		and a.ACCOUNTS_CODE = ac.ACCOUNTS_CODE
+		and b.customer_code = c.customer_code
+		order by b.BA_CODE asc
+	</select>
+	
+	<!-- 예금 개수 가져오기 -->
+	<select id="FT_DepositCntSelect" parameterType="String" resultType="int">
+		select count(b.BA_CODE)
+		FROM detail_ac_tbl a, bank_account_tbl b, customer_list_tbl c, accounts_tbl ac
+		where a.DETAIL_AC_CODE = b.ba_code
+		and a.ACCOUNTS_CODE = ac.ACCOUNTS_CODE
+		and b.customer_code = c.customer_code
+		and (b.BA_CODE like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or a.account_name like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or b.ba_number like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 예금 검색한 것 가져오기 -->
+	<select id="FT_DepositSelect" parameterType="String" resultType="com.pj.erp.vo.FT.FT_Deposit">
+		SELECT
+		b.BA_CODE as depositCode, a.account_name as depositName, 
+		c.customer_code as accCode, c.customer_name as accName, a.ACCOUNTS_CODE as subjectCode,
+		ac.ACCOUNTS_NAME as subjectName, b.ba_number as accountNo, b.ba_holder as accountHolder
+		FROM detail_ac_tbl a, bank_account_tbl b, customer_list_tbl c, accounts_tbl ac
+		where a.DETAIL_AC_CODE = b.ba_code
+		and a.ACCOUNTS_CODE = ac.ACCOUNTS_CODE
+		and b.customer_code = c.customer_code
+		and (b.BA_CODE like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or a.account_name like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or b.ba_number like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 예금 key 가져오기 -->
+	<select id="FT_DepositKeySelect" resultType="String">
+		select ba_code from bank_account_tbl
+		where ROWNUM = 1
+		ORDER BY ba_code desc
+	</select>
+	
+	<!-- 예금 추가 -->
+	<insert id="FT_DepositPrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME)
+		values (#{SubjectCode}, 'DE_' || accounts_seq.nextval, #{depositName})
+	</insert>
+	
+	<insert id="FT_DepositInsert" parameterType = "java.util.Map">
+		insert into bank_account_tbl(BA_CODE, CUSTOMER_CODE, BA_NUMBER, BA_HOLDER)
+		values ('DE_' || accounts_seq.currval, #{AccCode}, #{AccountNo}, #{AccountHolder})
+	</insert>
+	
+	<!-- 예금수정 -->
+	<update id="FT_DepositPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNTS_CODE = #{SubjectCode}, ACCOUNT_NAME = #{depositName}
+		where DETAIL_AC_CODE = #{depositCode}
+	</update>
+	
+	<update id="FT_DepositUpdate" parameterType = "java.util.Map">
+		update bank_account_tbl
+		set CUSTOMER_CODE = #{AccCode}, BA_NUMBER = #{AccountNo}, BA_HOLDER = #{AccountHolder}
+		where BA_CODE = #{depositCode}
+	</update>
+	
+	<!-- 예금삭제 -->
+	<delete id="FT_DepositPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_DepositDelete" parameterType = "java.util.Map">
+		delete from bank_account_tbl
+		where BA_CODE = #{key}
+	</delete>
+	
+	<!-- 카드 가져오기 -->
+	<select id="FT_CardManagementSelect" resultType="com.pj.erp.vo.FT.FT_Card">
+		SELECT
+		cd.card_code as cardCode, cd.card_name as cardName, 
+		c.customer_code as accCode, c.customer_name as accName, a.ACCOUNTS_CODE as subjectCode,
+		ac.ACCOUNTS_NAME as subjectName, cd.card_type as cardType, cd.card_ as cardPurpose, cd.card_owner as owner, 
+		cd.ba_code as payCode, b.ba_number as accountNo
+		FROM detail_ac_tbl a, bank_account_tbl b, customer_list_tbl c, CARD_LIST_TBL cd, accounts_tbl ac
+		where a.DETAIL_AC_CODE = cd.card_code
+		and a.ACCOUNTS_CODE = ac.ACCOUNTS_CODE
+		and cd.customer_code = c.customer_code
+		and cd.ba_code = b.ba_code
+		order by b.BA_CODE asc
+	</select>
+	
+	<!-- 카드 key 가져오기 -->
+	<select id="FT_CardManagementKeySelect" resultType="String">
+		select card_code from CARD_LIST_TBL
+		where ROWNUM = 1
+		ORDER BY card_code desc
+	</select>
+	
+	<!-- 카드 추가 -->
+	<insert id="FT_CardManagementPrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME)
+		values (#{SubjectCode}, 'CD_' || cards_seq.nextval, #{CardName})
+	</insert>
+	
+	<insert id="FT_CardManagementInsert" parameterType = "java.util.Map">
+		insert into CARD_LIST_TBL(card_code, customer_code, card_name, card_type, card_, card_owner, ba_code)
+		values ('CD_' || cards_seq.currval, #{AccCode}, #{CardName}, #{CardType}, #{CardPurpose}, #{Owner}, #{PayCode})
+	</insert>
+	
+	<!-- 카드수정 -->
+	<update id="FT_CardManagementPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNTS_CODE = #{SubjectCode}, ACCOUNT_NAME = #{CardName}
+		where DETAIL_AC_CODE = #{CardCode}
+	</update>
+	
+	<update id="FT_CardManagementUpdate" parameterType = "java.util.Map">
+		update CARD_LIST_TBL
+		set customer_code = #{AccCode}, card_name = #{CardName}, card_type = #{CardType},
+		card_ = #{CardPurpose}, card_owner = #{Owner}, ba_code = #{PayCode}
+		where card_code = #{CardCode}
+	</update>
+	
+	<!-- 카드삭제 -->
+	<delete id="FT_CardManagementPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_CardManagementDelete" parameterType = "java.util.Map">
+		delete from CARD_LIST_TBL
+		where card_code = #{key}
+	</delete>
+	
+	<!-- 거래처 가져오기 -->
+	<select id="FT_AccountAllSelect" resultType="com.pj.erp.vo.FT.FT_Account">
+		SELECT
+	    c.customer_code, c.license_number, c.customer_name,
+	    c.branch_name, c.customer_credit, c.deal_state,
+	    b.bs_name, b.bs_master, b.bs_startdate, b.bs_number, b.bs_address,
+	    b.bs_address2, b.bs_condition, b.bs_line, b.license_scanfile
+		FROM customer_list_tbl c, b_license_tbl b
+		where c.license_number = b.license_number
+	</select>
+	
+	<!-- 거래처 개수 가져오기 -->
+	<select id="FT_AccountCntSelect" parameterType="String" resultType="int">
+		SELECT
+	    count(c.customer_code)
+	    FROM customer_list_tbl c, b_license_tbl b
+		where c.license_number = b.license_number
+		and (c.customer_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or c.customer_name like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or c.license_number like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 거래처 한개 가져오기 -->
+	<select id="FT_AccountOneSelect" parameterType="String" resultType="com.pj.erp.vo.FT.FT_Account">
+		SELECT
+	    c.customer_code, c.license_number, c.customer_name,
+	    c.branch_name, c.customer_credit, c.deal_state,
+	    b.bs_name, b.bs_master, b.bs_startdate, b.bs_number, b.bs_address,
+	    b.bs_address2, b.bs_condition, b.bs_line, b.license_scanfile
+		FROM customer_list_tbl c, b_license_tbl b
+		where c.license_number = b.license_number
+		and c.customer_code = #{srhval, jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 거래처 가져오기 -->
+	<select id="FT_AccountSelect" parameterType="String" resultType="com.pj.erp.vo.FT.FT_Account">
+		SELECT
+	    c.customer_code, c.license_number, c.customer_name,
+	    c.branch_name, c.customer_credit, c.deal_state,
+	    b.bs_name, b.bs_master, b.bs_startdate, b.bs_number, b.bs_address,
+	    b.bs_address2, b.bs_condition, b.bs_line, b.license_scanfile
+		FROM customer_list_tbl c, b_license_tbl b
+		where c.license_number = b.license_number
+		and (c.customer_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or c.customer_name like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or c.license_number like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 계정과목 가져오기 -->
+	<select id="FT_SubjectAllSelect" resultType="com.pj.erp.vo.FT.FT_Subject">
+		select de.detail_ac_code, de.account_name, de.di_table, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+	</select>
+	
+	<!-- 계정과목 개수 가져오기 -->
+	<select id="FT_SubjectCntSelect" parameterType="String" resultType="int">
+		select count(de.detail_ac_code)
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+		and (de.detail_ac_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or de.account_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 계정과목 검색한 것 가져오기 -->
+	<select id="FT_SubjectSelect" resultType="com.pj.erp.vo.FT.FT_Subject">
+		select de.detail_ac_code, de.account_name, de.di_table, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+		and (de.detail_ac_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or de.account_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	
+	<!-- 중계정과목 가져오기 -->
+	<select id="FT_AccSubjectAllSelect" resultType="com.pj.erp.vo.FT.FT_Subject">
+		select ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+	</select>
+	
+	<!-- 중계정과목 개수 가져오기 -->
+	<select id="FT_AccSubjectCntSelect" parameterType="String" resultType="int">
+		select count(de.detail_ac_code)
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+		and (ac.accounts_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or ac.accounts_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 중계정과목 검색한 것 가져오기 -->
+	<select id="FT_AccSubjectSelect" resultType="com.pj.erp.vo.FT.FT_Subject">
+		select ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac, detail_ac_tbl de
+		where l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+		and (ac.accounts_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or ac.accounts_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 사원 가져오기 -->
+	<select id="FT_UsersAllSelect" resultType="com.pj.erp.vo.HR.HR_VO">
+		select * from users
+		order by TO_NUMBER(username)
+	</select>
+	
+	<!-- 사원 개수 가져오기 -->
+	<select id="FT_UsersCntSelect" parameterType="String" resultType="int">
+		select count(username) from users
+		where (username like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or e_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 사원 검색한 것 가져오기 -->
+	<select id="FT_UsersSelect" resultType="com.pj.erp.vo.HR.HR_VO">
+		select * from users
+		where (username like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or e_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 부서 가져오기 -->
+	<select id="FT_DepartmentAllSelect" resultType="com.pj.erp.vo.HR.HR_VO">
+		select department_code, department_name from department_tbl
+	</select>
+	
+	<!-- 부서 개수 가져오기 -->
+	<select id="FT_DepartmentCntSelect" parameterType="String" resultType="int">
+		select count(department_code) from department_tbl
+		where (department_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or department_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 부서 검색한 것 가져오기 -->
+	<select id="FT_DepartmentSelect" resultType="com.pj.erp.vo.HR.HR_VO">
+		select department_code, department_name from department_tbl
+		where (department_code like '%' || #{srhval, jdbcType=VARCHAR} || '%'
+		or department_name like '%' || #{srhval, jdbcType=VARCHAR} || '%')
+	</select>
+	
+	<!-- 단기차입금 목록 검색결과 -->
+	<select id="getSBorrowList" resultType="com.pj.erp.vo.FT.FT_Short_Borrow_List" parameterType = "java.util.Map">
+		select * from shortterm_debt_tbl 
+		<if test = "customer_code != null">
+			<if test = "username != null">
+				where customer_code = '%'||#{customer_code}||'%' and username = '%'||#{username}||'%'
+			</if>
+			<if test = "username == null">
+				where customer_code = '%'||#{customer_code}||'%' 
+			</if>
+		</if>
+		<if test = "customer_code == null">
+			<if test = "username != null">
+				where username = '%'||#{username}||'%'
+			</if>
+			<if test = "username == null">
+			</if>
+		</if>
+	</select>
+	
+	<!-- 장기차입금 목록 검색결과 -->
+	<select id="getLBorrowList" resultType="com.pj.erp.vo.FT.FT_Long_Borrow_List" parameterType = "java.util.Map">
+		select * from longterm_debt_tbl 
+		<if test = "customer_code != null">
+			<if test = "username != null">
+				where customer_code = '%'||#{customer_code}||'%' and username = '%'||#{username}||'%'
+			</if>
+			<if test = "username == null">
+				where customer_code = '%'||#{customer_code}||'%' 
+			</if>
+		</if>
+		<if test = "customer_code == null">
+			<if test = "username != null">
+				where username = '%'||#{username}||'%'
+			</if>
+			<if test = "username == null">
+			</if>
+		</if>
+	</select>
+	
+	<!-- 지급어음 목록 검색결과 -->
+	<select id="getBillPaymentList" resultType="com.pj.erp.vo.FT.FT_Bill_payment_VO" parameterType = "java.util.Map">
+		select * from bill_payment_tbl
+		<if test = "customer_code != null">
+				where customer_code = '%'||#{customer_code}||'%' 
+		</if>
+		<if test = "customer_code == null">
+		</if>
+	</select>
+	
+	<!-- 토지목록 검색결과 -->
+	<select id="getLandList" resultType="com.pj.erp.vo.FT.FT_land_list_VO" parameterType = "java.util.Map">
+		select * from land_tbl
+		<if test = "department_code != null">
+			<if test = "land_name != null">
+				where department_code = '%'||#{department_code}||'%' and land_name = '%'||#{land_name}||'%'
+			</if>
+			<if test = "land_name == null">
+				where department_code = '%'||#{department_code}||'%' 
+			</if>
+		</if>
+		<if test = "department_code == null">
+			<if test = "land_name != null">
+				where land_name = '%'||#{land_name}||'%'
+			</if>
+			<if test = "land_name == null">
+			</if>
+		</if>
+	</select>
+	
+	<!-- 설비목록 검색결과 -->
+	<select id="getFacilityList" resultType="com.pj.erp.vo.FT.FT_facility_list_VO" parameterType = "java.util.Map">
+		select * from equipment_tbl
+		<if test = "department_code != null">
+			<if test = "eq_name != null">
+				where department_code = '%'||#{department_code}||'%' and eq_name = '%'||#{eq_name}||'%'
+			</if>
+			<if test = "eq_name == null">
+				where department_code = '%'||#{department_code}||'%' 
+			</if>
+		</if>
+		<if test = "department_code == null">
+			<if test = "eq_name != null">
+				where eq_name = '%'||#{eq_name}||'%'
+			</if>
+			<if test = "eq_name == null">
+			</if>
+		</if>
+	</select>
+	
+	<!-- 분개 데이터 갯수 가져오기 -->
+	<select id="FT_chitDistinctCnt" parameterType="java.util.Map" resultType="int">
+		select count(journal_number) 
+		from journal_record_tbl
+		where journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		<if test="state == 1">
+			and username is null
+		</if>
+		<if test="state == 2">
+			and username is not null
+		</if>
+	</select>
+	
+	<!-- 분개 데이터 가져오기 -->
+	<select id="FT_ChitDistinct" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Chit">
+		select DISTINCT journal_number, to_char(journal_date, 'yyyy-MM-dd') "journal_date", j.username username, u.e_name fname
+		from journal_record_tbl j, users u
+        where j.username = u.username(+)
+		and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		<if test="state == 1">
+			and j.username is null
+		</if>
+		<if test="state == 2">
+			and j.username is not null
+		</if>
+		order by to_char(journal_date, 'yyyy-MM-dd'), to_number(journal_number)
+	</select>
+	
+	<!-- 검색된 모든 분개 갯수 가져오기 -->
+	<select id="FT_journalListCnt" parameterType="java.util.Map" resultType="int">
+		select count(journal_number) 
+		from journal_record_tbl
+		where journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		<if test="usercode != null">
+			and username like '%' || #{usercode} || '%'
+		</if>
+	</select>
+	
+	<!-- 검색된 모든 분개 가져오기 -->
+	<select id="FT_journalList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Chit">
+		select j.journal_code, j.journal_number, j.journal_date, de.detail_ac_code, de.account_name,
+		c.customer_code, c.customer_name, j.debtor_value, j.creditor_value, j.l_count_value, j.r_count_value, j.journal_abstract,
+		j.jr_state, j.last_update, j.last_modi_user, writer.e_name wname, j.username
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, users writer
+		where j.detail_ac_code = de.detail_ac_code
+		and j.customer_code = c.customer_code
+		and writer.username = j.last_modi_user
+		and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		<if test="usercode != null and usercode != ''">
+			and j.last_modi_user like '%' || #{usercode} || '%'
+		</if>
+		order by 3 asc, 2 asc
+	</select>
+	
+	<!-- 거래처 원장 리스트 갯수 가져오기 -->
+	<select id="FT_ledgerListCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		select count(c.customer_code)
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, b_license_tbl b, (select distinct CASE WHEN count(customer_code) = 0 THEN null
+        ELSE customer_code END as customer_code, CASE WHEN count(customer_code) = 0 THEN 0
+         WHEN (sum(debtor_value)-sum(creditor_value)) <= 0 THEN 0
+        ELSE (sum(debtor_value)-sum(creditor_value)) END as debtor_value
+		from journal_record_tbl j, detail_ac_tbl de
+		where j.detail_ac_code = de.detail_ac_code
+		and to_char(j.journal_date,'yyyy-MM') = #{year} || '-' || #{month}
+		and de.detail_ac_code = #{scode}
+		group by j.customer_code) bval
+        where j.customer_code = c.customer_code
+        and c.license_number = b.license_number
+        and j.detail_ac_code = de.detail_ac_code
+        and bval.customer_code(+) = j.customer_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        and de.detail_ac_code = #{scode}
+    	]]>
+    	<if test="acode != null and acode != ''">
+        	and c.customer_code = #{acode}
+        </if>
+	</select>
+	
+	<!-- 거래처 원장 리스트 가져오기 -->
+	<select id="FT_ledgerList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Ledger">
+	<![CDATA[
+		select c.customer_code, c.customer_name, c.license_number, CASE WHEN bval.debtor_value is null THEN 0
+        ELSE bval.debtor_value END as before_value, 
+		sum(j.debtor_value) debtor_value, sum(j.creditor_value) creditor_value, sum(j.l_count_value) l_count_value, sum(j.r_count_value) r_count_value,
+    	c.deal_state, b.bs_master
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, b_license_tbl b, (select distinct CASE WHEN count(customer_code) = 0 THEN null
+        ELSE customer_code END as customer_code, CASE WHEN count(customer_code) = 0 THEN 0
+         WHEN (sum(debtor_value)-sum(creditor_value)) <= 0 THEN 0
+        ELSE (sum(debtor_value)-sum(creditor_value)) END as debtor_value
+		from journal_record_tbl j, detail_ac_tbl de
+		where j.detail_ac_code = de.detail_ac_code
+		and to_char(j.journal_date,'yyyy-MM') = #{year} || '-' || #{month}
+		and de.detail_ac_code = #{scode}
+		group by j.customer_code) bval
+        where j.customer_code = c.customer_code
+        and c.license_number = b.license_number
+        and j.detail_ac_code = de.detail_ac_code
+        and bval.customer_code(+) = j.customer_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        and de.detail_ac_code = #{scode}
+    	]]>
+    	<if test="acode != null and acode != ''">
+        	and c.customer_code = #{acode}
+        </if>
+        group by c.customer_code, c.customer_name, c.license_number, bval.debtor_value, c.deal_state, b.bs_master
+	</select>
+	
+	<!-- 거래처 분개 리스트 갯수 가져오기 -->
+	<select id="FT_ledgerAccListCnt" parameterType="java.util.Map" resultType="int">
+		select count(j.detail_ac_code)
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, users writer
+		where j.detail_ac_code = de.detail_ac_code
+		and j.customer_code = c.customer_code
+		and writer.username = j.last_modi_user
+		and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		and de.detail_ac_code = #{scode}
+		and c.customer_code = #{acode}
+	</select>
+	
+	<!-- 거래처 분개 리스트 가져오기 -->
+	<select id="FT_ledgerAccList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Chit">
+		select j.journal_code, j.journal_number, j.journal_date, de.detail_ac_code, de.account_name,
+		c.customer_code, c.customer_name, j.debtor_value, j.creditor_value, j.l_count_value, j.r_count_value, j.journal_abstract,
+		j.jr_state, j.last_update, j.last_modi_user, writer.e_name wname, j.username, l.lg_name
+		from journal_record_tbl j, detail_ac_tbl de, customer_list_tbl c, users writer
+		, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+		and j.customer_code = c.customer_code
+		and writer.username = j.last_modi_user
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+		and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		and de.detail_ac_code = #{scode}
+		and c.customer_code = #{acode}
+	</select>
+	
+	<!-- 일별 리스트 갯수 가져오기 -->
+	<select id="FT_DTBDayListCntL" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, l.lg_code, l.lg_name
+				from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+				where j.detail_ac_code = de.detail_ac_code
+		        and l.lg_code = a.lg_code
+				and a.ag_code = ac.ag_code2
+		        and ac.accounts_code = de.accounts_code
+		        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		        group by l.lg_code, l.lg_name)
+	</select>
+	<select id="FT_DTBDayListCntM" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        group by a.ag_code, a.ag_name, l.lg_code, l.lg_name)
+	</select>
+	<select id="FT_DTBDayListCntS" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        group by ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name)
+	</select>
+	
+	<!-- 일별 리스트 가져오기 -->
+	<select id="FT_DTBDayListL" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, l.lg_code, l.lg_name
+				from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+				where j.detail_ac_code = de.detail_ac_code
+		        and l.lg_code = a.lg_code
+				and a.ag_code = ac.ag_code2
+		        and ac.accounts_code = de.accounts_code
+		        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+		        group by l.lg_code, l.lg_name
+		        order by case when l.lg_name = '자산' then 1 when l.lg_name = '부채' then 2
+when l.lg_name = '자본' then 3 when l.lg_name = '수익' then 4 when l.lg_name = '비용' then 5 end
+	</select>
+	<select id="FT_DTBDayListM" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        group by a.ag_code, a.ag_name, l.lg_code, l.lg_name
+        order by case when a.ag_name = '당좌자산' then 1 when a.ag_name = '재고자산' then 2
+		when a.ag_name = '투자자산' then 3 when a.ag_name = '유형자산' then 4 when a.ag_name = '무형자산' then 5 
+		when a.ag_name = '기타비유동자산' then 6 when a.ag_name = '유동부채' then 7 when a.ag_name = '비유동부채' then 8 
+		when a.ag_name = '자본금' then 9 when a.ag_name = '자본잉여금' then 10 when a.ag_name = '자본조정' then 11 
+		when a.ag_name = '기타포괄손익누적계' then 12 when a.ag_name = '이익잉여금' then 13 when a.ag_name = '매출이익' then 14 
+		when a.ag_name = '기타수익' then 15 when a.ag_name = '판매비와관리비' then 16 end
+	</select>
+	<select id="FT_DTBDayListS" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday}) and to_date(#{lastday})
+        group by ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+        order by ag_name, accounts_code
+	</select>
+	
+	<!-- 월별 리스트 갯수 가져오기 -->
+	<select id="FT_DTBMonthListCntL" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, l.lg_code, l.lg_name
+				from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+				where j.detail_ac_code = de.detail_ac_code
+		        and l.lg_code = a.lg_code
+				and a.ag_code = ac.ag_code2
+		        and ac.accounts_code = de.accounts_code
+		        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+		        group by l.lg_code, l.lg_name)
+	</select>
+	<select id="FT_DTBMonthListCntM" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+        group by a.ag_code, a.ag_name, l.lg_code, l.lg_name)
+	</select>
+	<select id="FT_DTBMonthListCntS" parameterType="java.util.Map" resultType="int">
+		select count(*) from        
+		(select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+        group by ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name)
+	</select>
+	
+	<!-- 월별 리스트 가져오기 -->
+	<select id="FT_DTBMonthListL" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, l.lg_code, l.lg_name
+				from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+				where j.detail_ac_code = de.detail_ac_code
+		        and l.lg_code = a.lg_code
+				and a.ag_code = ac.ag_code2
+		        and ac.accounts_code = de.accounts_code
+		        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+		        group by l.lg_code, l.lg_name
+		        order by case when l.lg_name = '자산' then 1 when l.lg_name = '부채' then 2
+				when l.lg_name = '자본' then 3 when l.lg_name = '수익' then 4 when l.lg_name = '비용' then 5 end
+	</select>
+	<select id="FT_DTBMonthListM" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, a.ag_code, a.ag_name, l.lg_code, l.lg_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+        group by a.ag_code, a.ag_name, l.lg_code, l.lg_name
+        order by case when a.ag_name = '당좌자산' then 1 when a.ag_name = '재고자산' then 2
+		when a.ag_name = '투자자산' then 3 when a.ag_name = '유형자산' then 4 when a.ag_name = '무형자산' then 5 
+		when a.ag_name = '기타비유동자산' then 6 when a.ag_name = '유동부채' then 7 when a.ag_name = '비유동부채' then 8 
+		when a.ag_name = '자본금' then 9 when a.ag_name = '자본잉여금' then 10 when a.ag_name = '자본조정' then 11 
+		when a.ag_name = '기타포괄손익누적계' then 12 when a.ag_name = '이익잉여금' then 13 when a.ag_name = '매출이익' then 14 
+		when a.ag_name = '기타수익' then 15 when a.ag_name = '판매비와관리비' then 16 end
+	</select>
+	<select id="FT_DTBMonthListS" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_DTB">
+		select sum(j.debtor_value) debtorsum, sum(j.creditor_value) creditorsum, ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+		from journal_record_tbl j, detail_ac_tbl de, ledger_group_tbl l, accounts_group_tbl a, accounts_tbl ac
+		where j.detail_ac_code = de.detail_ac_code
+        and l.lg_code = a.lg_code
+		and a.ag_code = ac.ag_code2
+        and ac.accounts_code = de.accounts_code
+        and j.journal_date between to_date(#{firstday} || '-01') and to_date(#{lastday} || '-' || #{day})
+        group by ac.accounts_code, ac.accounts_name, a.ag_code, a.ag_name
+	</select>
+	
+	<!-- 전표승인처리 -->
+	<update id="FT_CheckFormal" parameterType="java.util.Map">
+		update journal_record_tbl
+		set username = #{username}
+		where journal_date = #{dates}
+		and journal_number = #{nos}
+	</update>
+	
+	<!-- 받을어음 가져오기 -->
+	<select id="FT_NoteAllSelect" resultType="com.pj.erp.vo.FT.FT_Note">
+		SELECT
+		b.bill_r_code, substr(a.account_name,0,length(a.account_name)-6) as noteNumber, 
+		c.customer_code, c.customer_name, b.payment_price,
+		b.payment_date, b.payment_expriration, b.payment_interest
+		FROM detail_ac_tbl a, bill_receivable_tbl b, customer_list_tbl c
+		where a.DETAIL_AC_CODE = b.bill_r_code
+		and b.customer_code = c.customer_code
+		order by b.bill_r_code asc
+	</select>
+	
+	<!-- 받을어음 key 가져오기 -->
+	<select id="FT_NoteKeySelect" resultType="String">
+		select bill_r_code from bill_receivable_tbl
+		where ROWNUM = 1
+		ORDER BY bill_r_code desc
+	</select>
+	
+	<!-- 받을어음 추가 -->
+	<insert id="FT_NotePrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME, di_table)
+		values ('qa_01100', 'NT_' || note_seq.nextval, #{noteNumber} || '(받을어음)', 'BILL_RECEIVABLE_TBL')
+	</insert>
+	
+	<insert id="FT_NoteInsert" parameterType = "java.util.Map">
+		insert into bill_receivable_tbl(bill_r_code, customer_code, payment_price, payment_date,
+		payment_expriration, payment_interest)
+		values ('NT_' || note_seq.currval, #{AccCode}, #{price}, #{startDate},
+		#{endDate}, #{lend})
+	</insert>
+	
+	<!-- 받을어음 수정 -->
+	<update id="FT_NotePrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNT_NAME = (#{noteNumber} || '(받을어음)')
+		where DETAIL_AC_CODE = #{noteCode}
+	</update>
+	
+	<update id="FT_NoteUpdate" parameterType = "java.util.Map">
+		update bill_receivable_tbl
+		set CUSTOMER_CODE = #{AccCode}, payment_price = #{price}, payment_date = #{startDate},
+		payment_expriration = #{endDate}, payment_interest = #{lend}
+		where bill_r_code = #{noteCode}
+	</update>
+	
+	<!-- 받을어음 삭제 -->
+	<delete id="FT_NotePrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_NoteDelete" parameterType = "java.util.Map">
+		delete from bill_receivable_tbl
+		where bill_r_code = #{key}
+	</delete>
+	
+	<!-- 단기대여금 가져오기 -->
+	<select id="FT_LoanAllSelect" resultType="com.pj.erp.vo.FT.FT_Loan">
+		SELECT
+		b.loan_s_code as loanCode, a.account_name as loanName, 
+		c.customer_code, c.customer_name, u.username, u.e_name ename,
+		b.loan_s_price, b.loan_s_date, b.loan_s_expriration, b.loan_s_interest
+		FROM detail_ac_tbl a, shortterm_loan_tbl b, customer_list_tbl c, users u
+		where a.DETAIL_AC_CODE = b.loan_s_code
+		and b.username = u.username
+		and b.customer_code = c.customer_code
+		order by b.loan_s_code asc
+	</select>
+	
+	<!-- 단기대여금 key 가져오기 -->
+	<select id="FT_LoanKeySelect" resultType="String">
+		select loan_s_code from shortterm_loan_tbl
+		where ROWNUM = 1
+		ORDER BY loan_s_code desc
+	</select>
+	
+	<!-- 단기대여금 추가 -->
+	<insert id="FT_LoanPrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME, di_table)
+		values ('qa_01400', 'LA_' || loan_seq.nextval, #{loanName}, 'SHORTTERM_LOAN_TBL')
+	</insert>
+	
+	<insert id="FT_LoanInsert" parameterType = "java.util.Map">
+		insert into shortterm_loan_tbl(loan_s_code, customer_code, username, loan_s_price,
+		loan_s_date, loan_s_expriration, loan_s_interest)
+		values ('LA_' || loan_seq.currval, #{AccCode}, #{username}, #{price}, #{startDate}, #{endDate}, #{lend})
+	</insert>
+	
+	<!-- 단기대여금 수정 -->
+	<update id="FT_LoanPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNT_NAME = #{loanName}
+		where DETAIL_AC_CODE = #{loanCode}
+	</update>
+	
+	<update id="FT_LoanUpdate" parameterType = "java.util.Map">
+		update shortterm_loan_tbl
+		set customer_code = #{AccCode}, username = #{username}, loan_s_price = #{price},
+		loan_s_date = #{startDate}, loan_s_expriration = #{endDate}, loan_s_interest = #{lend}
+		where loan_s_code = #{loanCode}
+	</update>
+	
+	<!-- 단기대여금 삭제 -->
+	<delete id="FT_LoanPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_LoanDelete" parameterType = "java.util.Map">
+		delete from shortterm_loan_tbl
+		where loan_s_code = #{key}
+	</delete>
+	
+	<!-- 단기매매증권 가져오기 -->
+	<select id="FT_SecuritiesAllSelect" resultType="com.pj.erp.vo.FT.FT_Securities">
+		SELECT
+		b.ts_code as securitiesCode, a.account_name as securitiesName, 
+		c.customer_code, c.customer_name, b.ts_type, b.ts_number,
+		b.ts_date, b.ts_expriration, b.ts_amount, b.ts_money, b.ts_interest
+		FROM detail_ac_tbl a, trading_securities_tbl b, customer_list_tbl c
+		where a.DETAIL_AC_CODE = b.ts_code
+		and b.customer_code = c.customer_code
+		order by b.ts_code asc
+	</select>
+	
+	<!-- 단기매매증권 key 가져오기 -->
+	<select id="FT_SecuritiesKeySelect" resultType="String">
+		select ts_code from trading_securities_tbl
+		where ROWNUM = 1
+		ORDER BY ts_code desc
+	</select>
+	
+	<!-- 단기매매증권 추가 -->
+	<insert id="FT_SecuritiesPrevInsert" parameterType = "java.util.Map">
+		insert into detail_ac_tbl(ACCOUNTS_CODE, DETAIL_AC_CODE, ACCOUNT_NAME, di_table)
+		values ('qa_00700', 'SE_' || securities_seq.nextval, #{SecuritiesName}, 'TRADING_SECURITIES_TBL')
+	</insert>
+	
+	<insert id="FT_SecuritiesInsert" parameterType = "java.util.Map">
+		insert into trading_securities_tbl(ts_code, CUSTOMER_CODE, ts_type, ts_number,
+		ts_date, ts_expriration, ts_amount, ts_money, ts_interest)
+		values ('SE_' || securities_seq.currval, #{AccCode}, #{type}, #{number},
+		#{startDate}, #{endDate}, #{amount}, #{price}, #{lend})
+	</insert>
+	
+	<!-- 단기매매증권 수정 -->
+	<update id="FT_SecuritiesPrevUpdate" parameterType = "java.util.Map">
+		update detail_ac_tbl
+		set ACCOUNT_NAME = #{SecuritiesName}
+		where DETAIL_AC_CODE = #{SecuritiesCode}
+	</update>
+	
+	<update id="FT_SecuritiesUpdate" parameterType = "java.util.Map">
+		update trading_securities_tbl
+		set CUSTOMER_CODE = #{AccCode}, ts_type = #{type}, ts_number = #{number},
+		ts_date = #{startDate}, ts_expriration = #{endDate}, ts_amount = #{amount}, 
+		ts_money = #{price}, ts_interest = #{lend}
+		where ts_code = #{SecuritiesCode}
+	</update>
+	
+	<!-- 단기매매증권 삭제 -->
+	<delete id="FT_SecuritiesPrevDelete" parameterType = "java.util.Map">
+		delete from detail_ac_tbl
+		where DETAIL_AC_CODE = #{key}
+	</delete>
+	
+	<delete id="FT_SecuritiesDelete" parameterType = "java.util.Map">
+		delete from trading_securities_tbl
+		where ts_code = #{key}
+	</delete>
+	
+	<!-- 재무상태표 계정별 합계_권순용 -->
+	<select id="FT_getAssetsList" resultType="com.pj.erp.vo.FT.FT_accounts_balance">
+		select * from getBalanceShit_t_view where lg_name=#{typename} order by acc_level
+	</select>
+	
+	<select id="FT_getIsList" resultType="com.pj.erp.vo.FT.FT_accounts_balance">
+		select * from getBalanceShit_t_view where accounts_name=#{typename} order by acc_level
+	</select>
+	
+	<!-- 건물 감가상각 갯수 가져오기 -->
+	<select id="FT_BDepreciationDataCnt" parameterType="java.util.Map" resultType="int">
+	<![CDATA[
+		select count(base.building_code) code from
+		(select building_code, building_name, building_cost from building_tbl
+		where to_char(building_regdate, 'yyyy') <= #{dated}) base,
+		(select building_code, case when ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) = 0 
+		then ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year)
+		else ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) + mod(building_cost, use_year) end as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select building_code, CASE WHEN ((#{dated} + 1) - to_char(building_regdate, 'yyyy')) = 1 THEN TRUNC(building_cost/use_year) + mod(building_cost, use_year)
+		        ELSE TRUNC(building_cost/use_year) END as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select building_code, building_cost - (((#{dated}) - to_char(building_regdate, 'yyyy') + 1) * TRUNC(building_cost/use_year) + mod(building_cost, use_year)) as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.building_code = befsum.building_code(+)
+		and base.building_code = nowpr.building_code(+)
+		and base.building_code = notpr.building_code(+)
+		order by base.building_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_BDepreciationDataList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select base.building_code code, base.building_name name, base.building_cost baseCost, case when befsum.devprice is null 
+		then base.building_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.building_cost else befsum.devprice + nowpr.devprice end nowsum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select building_code, building_name, building_cost from building_tbl
+		where to_char(building_regdate, 'yyyy') <= #{dated}) base,
+		(select building_code, case when ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) = 0 
+		then ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year)
+		else ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) + mod(building_cost, use_year) end as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select building_code, CASE WHEN ((#{dated} + 1) - to_char(building_regdate, 'yyyy')) = 1 THEN TRUNC(building_cost/use_year) + mod(building_cost, use_year)
+		        ELSE TRUNC(building_cost/use_year) END as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select building_code, building_cost - (((#{dated}) - to_char(building_regdate, 'yyyy') + 1) * TRUNC(building_cost/use_year) + mod(building_cost, use_year)) as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.building_code = befsum.building_code(+)
+		and base.building_code = nowpr.building_code(+)
+		and base.building_code = notpr.building_code(+)
+		order by base.building_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 갯수 가져오기 -->
+	<select id="FT_BDepreciationDistinctCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		select count(code) from
+		(select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.building_code code, base.building_cost baseprice, case when befsum.devprice is null 
+		then base.building_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.building_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select building_code, building_cost from building_tbl
+		where to_char(building_regdate, 'yyyy') <= #{dated}) base,
+		(select building_code, case when ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) = 0 
+		then ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year)
+		else ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) + mod(building_cost, use_year) end as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select building_code, CASE WHEN ((#{dated} + 1) - to_char(building_regdate, 'yyyy')) = 1 THEN TRUNC(building_cost/use_year) + mod(building_cost, use_year)
+		        ELSE TRUNC(building_cost/use_year) END as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select building_code, building_cost - (((#{dated}) - to_char(building_regdate, 'yyyy') + 1) * TRUNC(building_cost/use_year) + mod(building_cost, use_year)) as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.building_code = befsum.building_code(+)
+		and base.building_code = nowpr.building_code(+)
+		and base.building_code = notpr.building_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name)
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_BDepreciationDistinct" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.building_code code, base.building_cost baseprice, case when befsum.devprice is null 
+		then base.building_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.building_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select building_code, building_cost from building_tbl
+		where to_char(building_regdate, 'yyyy') <= #{dated}) base,
+		(select building_code, case when ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) = 0 
+		then ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year)
+		else ((#{dated}) - to_char(building_regdate, 'yyyy')) * TRUNC(building_cost/use_year) + mod(building_cost, use_year) end as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select building_code, CASE WHEN ((#{dated} + 1) - to_char(building_regdate, 'yyyy')) = 1 THEN TRUNC(building_cost/use_year) + mod(building_cost, use_year)
+		        ELSE TRUNC(building_cost/use_year) END as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select building_code, building_cost - (((#{dated}) - to_char(building_regdate, 'yyyy') + 1) * TRUNC(building_cost/use_year) + mod(building_cost, use_year)) as devprice from building_tbl
+		where to_char(building_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.building_code = befsum.building_code(+)
+		and base.building_code = nowpr.building_code(+)
+		and base.building_code = notpr.building_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name
+		]]>
+	</select>
+	
+	<!-- 토지 감가상각 갯수 가져오기 -->
+	<select id="FT_LDepreciationDataCnt" parameterType="java.util.Map" resultType="int">
+	<![CDATA[
+		select count(base.land_code) code
+		from
+		(select land_code, land_name, land_cost from land_tbl
+		where to_char(land_regdate, 'yyyy') <= #{dated}) base,
+		(select land_code, case when ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) = 0 
+		then ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year)
+		else ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) + mod(land_cost, use_year) end as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select land_code, CASE WHEN ((#{dated} + 1) - to_char(land_regdate, 'yyyy')) = 1 THEN TRUNC(land_cost/use_year) + mod(land_cost, use_year)
+		        ELSE TRUNC(land_cost/use_year) END as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select land_code, land_cost - (((#{dated}) - to_char(land_regdate, 'yyyy') + 1) * TRUNC(land_cost/use_year) + mod(land_cost, use_year)) as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.land_code = befsum.land_code(+)
+		and base.land_code = nowpr.land_code(+)
+		and base.land_code = notpr.land_code(+)
+		order by base.land_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_LDepreciationDataList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select base.land_code code, base.land_name name, base.land_cost baseCost, case when befsum.devprice is null 
+		then base.land_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.land_cost else befsum.devprice + nowpr.devprice end nowsum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice 
+		from
+		(select land_code, land_name, land_cost from land_tbl
+		where to_char(land_regdate, 'yyyy') <= #{dated}) base,
+		(select land_code, case when ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) = 0 
+		then ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year)
+		else ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) + mod(land_cost, use_year) end as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select land_code, CASE WHEN ((#{dated} + 1) - to_char(land_regdate, 'yyyy')) = 1 THEN TRUNC(land_cost/use_year) + mod(land_cost, use_year)
+		        ELSE TRUNC(land_cost/use_year) END as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select land_code, land_cost - (((#{dated}) - to_char(land_regdate, 'yyyy') + 1) * TRUNC(land_cost/use_year) + mod(land_cost, use_year)) as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.land_code = befsum.land_code(+)
+		and base.land_code = nowpr.land_code(+)
+		and base.land_code = notpr.land_code(+)
+		order by base.land_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 갯수 가져오기 -->
+	<select id="FT_LDepreciationDistinctCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		select count(code) from
+		(select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.land_code code, base.land_cost baseprice, case when befsum.devprice is null 
+		then base.land_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.land_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select land_code, land_cost from land_tbl
+		where to_char(land_regdate, 'yyyy') <= #{dated}) base,
+		(select land_code, case when ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) = 0 
+		then ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year)
+		else ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) + mod(land_cost, use_year) end as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select land_code, CASE WHEN ((#{dated} + 1) - to_char(land_regdate, 'yyyy')) = 1 THEN TRUNC(land_cost/use_year) + mod(land_cost, use_year)
+		        ELSE TRUNC(land_cost/use_year) END as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select land_code, land_cost - (((#{dated}) - to_char(land_regdate, 'yyyy') + 1) * TRUNC(land_cost/use_year) + mod(land_cost, use_year)) as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.land_code = befsum.land_code(+)
+		and base.land_code = nowpr.land_code(+)
+		and base.land_code = notpr.land_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name)
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_LDepreciationDistinct" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.land_code code, base.land_cost baseprice, case when befsum.devprice is null 
+		then base.land_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.land_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select land_code, land_cost from land_tbl
+		where to_char(land_regdate, 'yyyy') <= #{dated}) base,
+		(select land_code, case when ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) = 0 
+		then ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year)
+		else ((#{dated}) - to_char(land_regdate, 'yyyy')) * TRUNC(land_cost/use_year) + mod(land_cost, use_year) end as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) befsum,
+		(select land_code, CASE WHEN ((#{dated} + 1) - to_char(land_regdate, 'yyyy')) = 1 THEN TRUNC(land_cost/use_year) + mod(land_cost, use_year)
+		        ELSE TRUNC(land_cost/use_year) END as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) nowpr,
+		(select land_code, land_cost - (((#{dated}) - to_char(land_regdate, 'yyyy') + 1) * TRUNC(land_cost/use_year) + mod(land_cost, use_year)) as devprice from land_tbl
+		where to_char(land_regdate, 'yyyy') + use_year > #{dated}) notpr
+		where base.land_code = befsum.land_code(+)
+		and base.land_code = nowpr.land_code(+)
+		and base.land_code = notpr.land_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name
+		]]>
+	</select>
+	
+	<!-- 설비 감가상각 갯수 가져오기 -->
+	<select id="FT_EDepreciationDataCnt" parameterType="java.util.Map" resultType="int">
+	<![CDATA[
+		select count(base.eq_code) code from
+		(select eq_code, eq_name,eq_prime_cost from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select eq_code, case when ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) = 0 
+		then ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable)
+		else ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable) end as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) befsum,
+		(select eq_code, CASE WHEN ((#{dated} + 1) - to_char(eq_acquire_date, 'yyyy')) = 1 THEN TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)
+		        ELSE TRUNC(eq_prime_cost/eq_durable) END as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) nowpr,
+		(select eq_code, eq_prime_cost - (((#{dated}) - to_char(eq_acquire_date, 'yyyy') + 1) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)) as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) notpr
+		where base.eq_code = befsum.eq_code(+)
+		and base.eq_code = nowpr.eq_code(+)
+		and base.eq_code = notpr.eq_code(+)
+		order by base.eq_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_EDepreciationDataList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select base.eq_code code, base.eq_name name, base.eq_prime_cost baseCost, case when befsum.devprice is null 
+		then base.eq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.eq_prime_cost else befsum.devprice + nowpr.devprice end nowsum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select eq_code, eq_name,eq_prime_cost from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select eq_code, case when ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) = 0 
+		then ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable)
+		else ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable) end as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) befsum,
+		(select eq_code, CASE WHEN ((#{dated} + 1) - to_char(eq_acquire_date, 'yyyy')) = 1 THEN TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)
+		        ELSE TRUNC(eq_prime_cost/eq_durable) END as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) nowpr,
+		(select eq_code, eq_prime_cost - (((#{dated}) - to_char(eq_acquire_date, 'yyyy') + 1) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)) as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) notpr
+		where base.eq_code = befsum.eq_code(+)
+		and base.eq_code = nowpr.eq_code(+)
+		and base.eq_code = notpr.eq_code(+)
+		order by base.eq_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 갯수 가져오기 -->
+	<select id="FT_EDepreciationDistinctCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		select count(code) from
+		(select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.eq_code code, base.eq_prime_cost baseprice, case when befsum.devprice is null 
+		then base.eq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.eq_prime_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select eq_code, eq_prime_cost from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select eq_code, case when ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) = 0 
+		then ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable)
+		else ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable) end as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) befsum,
+		(select eq_code, CASE WHEN ((#{dated} + 1) - to_char(eq_acquire_date, 'yyyy')) = 1 THEN TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)
+		        ELSE TRUNC(eq_prime_cost/eq_durable) END as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) nowpr,
+		(select eq_code, eq_prime_cost - (((#{dated}) - to_char(eq_acquire_date, 'yyyy') + 1) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)) as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) notpr
+		where base.eq_code = befsum.eq_code(+)
+		and base.eq_code = nowpr.eq_code(+)
+		and base.eq_code = notpr.eq_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name)
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_EDepreciationDistinct" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.eq_code code, base.eq_prime_cost baseprice, case when befsum.devprice is null 
+		then base.eq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.eq_prime_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select eq_code, eq_prime_cost from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select eq_code, case when ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) = 0 
+		then ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable)
+		else ((#{dated}) - to_char(eq_acquire_date, 'yyyy')) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable) end as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) befsum,
+		(select eq_code, CASE WHEN ((#{dated} + 1) - to_char(eq_acquire_date, 'yyyy')) = 1 THEN TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)
+		        ELSE TRUNC(eq_prime_cost/eq_durable) END as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) nowpr,
+		(select eq_code, eq_prime_cost - (((#{dated}) - to_char(eq_acquire_date, 'yyyy') + 1) * TRUNC(eq_prime_cost/eq_durable) + mod(eq_prime_cost, eq_durable)) as devprice from equipment_tbl
+		where to_char(eq_acquire_date, 'yyyy') + eq_durable > #{dated}) notpr
+		where base.eq_code = befsum.eq_code(+)
+		and base.eq_code = nowpr.eq_code(+)
+		and base.eq_code = notpr.eq_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name
+		]]>
+	</select>
+	
+	<!-- 전산설비 감가상각 갯수 가져오기 -->
+	<select id="FT_CDepreciationDataCnt" parameterType="java.util.Map" resultType="int">
+	<![CDATA[
+		select count(base.ceq_code) code from
+		(select ceq_code, ceq_name, ceq_prime_cost from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select ceq_code, case when ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) = 0 
+		then ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable)
+		else ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable) end as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) befsum,
+		(select ceq_code, CASE WHEN ((#{dated} + 1) - to_char(ceq_acquire_date, 'yyyy')) = 1 THEN TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)
+		        ELSE TRUNC(ceq_prime_cost/ceq_durable) END as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) nowpr,
+		(select ceq_code, ceq_prime_cost - (((#{dated}) - to_char(ceq_acquire_date, 'yyyy') + 1) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)) as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) notpr
+		where base.ceq_code = befsum.ceq_code(+)
+		and base.ceq_code = nowpr.ceq_code(+)
+		and base.ceq_code = notpr.ceq_code(+)
+		order by base.ceq_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_CDepreciationDataList" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select base.ceq_code code, base.ceq_name name, base.ceq_prime_cost baseCost, case when befsum.devprice is null 
+		then base.ceq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.ceq_prime_cost else befsum.devprice + nowpr.devprice end nowsum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select ceq_code, ceq_name, ceq_prime_cost from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select ceq_code, case when ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) = 0 
+		then ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable)
+		else ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable) end as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) befsum,
+		(select ceq_code, CASE WHEN ((#{dated} + 1) - to_char(ceq_acquire_date, 'yyyy')) = 1 THEN TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)
+		        ELSE TRUNC(ceq_prime_cost/ceq_durable) END as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) nowpr,
+		(select ceq_code, ceq_prime_cost - (((#{dated}) - to_char(ceq_acquire_date, 'yyyy') + 1) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)) as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) notpr
+		where base.ceq_code = befsum.ceq_code(+)
+		and base.ceq_code = nowpr.ceq_code(+)
+		and base.ceq_code = notpr.ceq_code(+)
+		order by base.ceq_code
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 갯수 가져오기 -->
+	<select id="FT_CDepreciationDistinctCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		select count(code) from
+		(select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.ceq_code code, base.ceq_prime_cost baseprice, case when befsum.devprice is null 
+		then base.ceq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.ceq_prime_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select ceq_code, ceq_prime_cost from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select ceq_code, case when ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) = 0 
+		then ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable)
+		else ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable) end as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) befsum,
+		(select ceq_code, CASE WHEN ((#{dated} + 1) - to_char(ceq_acquire_date, 'yyyy')) = 1 THEN TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)
+		        ELSE TRUNC(ceq_prime_cost/ceq_durable) END as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) nowpr,
+		(select ceq_code, ceq_prime_cost - (((#{dated}) - to_char(ceq_acquire_date, 'yyyy') + 1) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)) as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) notpr
+		where base.ceq_code = befsum.ceq_code(+)
+		and base.ceq_code = nowpr.ceq_code(+)
+		and base.ceq_code = notpr.ceq_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name)
+	]]>
+	</select>
+	
+	<!-- 건물 감가상각 가져오기 -->
+	<select id="FT_CDepreciationDistinct" parameterType="java.util.Map" resultType="com.pj.erp.vo.FT.FT_Depreciation">
+		<![CDATA[
+		select a.accounts_code code, a.accounts_name name, sum(gamga.baseprice) baseCost, sum(gamga.beforesum) beforesum, 
+		sum(gamga.nowprice) nowprice, 
+		sum(gamga.pricesum) nowsum, 
+		sum(gamga.unprice) unprice from
+		(select base.ceq_code code, base.ceq_prime_cost baseprice, case when befsum.devprice is null 
+		then base.ceq_prime_cost else befsum.devprice end beforesum, case when nowpr.devprice is null 
+		then 0 else nowpr.devprice end nowprice, 
+		case when (befsum.devprice + nowpr.devprice) is null 
+		then base.ceq_prime_cost else befsum.devprice + nowpr.devprice end pricesum, case when notpr.devprice is null
+		then 0 else notpr.devprice end unprice from
+		(select ceq_code, ceq_prime_cost from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') <= #{dated}) base,
+		(select ceq_code, case when ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) = 0 
+		then ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable)
+		else ((#{dated}) - to_char(ceq_acquire_date, 'yyyy')) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable) end as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) befsum,
+		(select ceq_code, CASE WHEN ((#{dated} + 1) - to_char(ceq_acquire_date, 'yyyy')) = 1 THEN TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)
+		        ELSE TRUNC(ceq_prime_cost/ceq_durable) END as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) nowpr,
+		(select ceq_code, ceq_prime_cost - (((#{dated}) - to_char(ceq_acquire_date, 'yyyy') + 1) * TRUNC(ceq_prime_cost/ceq_durable) + mod(ceq_prime_cost, ceq_durable)) as devprice from computer_equipment_tbl
+		where to_char(ceq_acquire_date, 'yyyy') + ceq_durable > #{dated}) notpr
+		where base.ceq_code = befsum.ceq_code(+)
+		and base.ceq_code = nowpr.ceq_code(+)
+		and base.ceq_code = notpr.ceq_code(+)) gamga,
+		detail_ac_tbl sub, accounts_tbl a
+		where gamga.code = sub.detail_ac_code
+		and sub.accounts_code = a.accounts_code
+		GROUP BY a.accounts_code, a.accounts_name
+		]]>
+	</select>
+	
+	<!-- 예산계획현황 검색결과 -->
+	<select id = "getPlanResult" parameterType = "java.util.Map" resultType = "com.pj.erp.vo.FT.FT_Plan_Result">
+		select * from budget_list_view where department_name like '%'||#{d_name}||'%'
+	</select>
+	
+	<!-- 예산계획현황 상세조회 -->
+	<select id = "getPlanDetail" resultType = "com.pj.erp.vo.FT.FT_Plan_Result" parameterType = "String">
+		select * from budget_list_view where budget_code like '%'||#{budget_codes}||'%'
+	</select>
+	
+	<!-- 예산계획현황 수정 -->
+	<update id="updatePlan" parameterType="java.util.Map">
+		update budget_tbl 
+		set budget_code=#{budget_code}, department_code=#{department_code}, budget_amount=#{budget_amount},
+			eas_code=#{eas_code}, e_approval_code=#{e_approval_code}, budget_subject=#{budget_subject}
+		where budget_code=#{budget_code}
+	</update>
+	
+	<!-- 예산계획현황 삭제 -->
+	<delete id="deletePlan" parameterType="java.util.Map">
+		delete from budget_tbl where budget_code=#{budget_code}
+	</delete>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_ProductSaleCnt" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '상품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_ProductSale" resultType="int">
+		select sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '상품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_JepumSaleCnt" parameterType="int" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_JepumSale" parameterType="int" resultType="int">
+		select sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_BaseProductCnt" parameterType="int" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '원재료(자제)'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_BaseProduct" parameterType="int" resultType="int">
+		select sum(j.debtor_value) - sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '상품'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_NowProductCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '상품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_NowProduct" parameterType="int" resultType="int">
+		select sum(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '상품'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_BaseSourceCnt" parameterType="int" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '원재료(자제)'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_BaseSource" parameterType="int" resultType="int">
+		select sum(j.debtor_value) - sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '원재료(자제)'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_NowSourceCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '원재료(자제)'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_NowSource" parameterType="int" resultType="int">
+		select sum(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '원재료(자제)'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_BaseJegongCnt" parameterType="int" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제공품'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_BaseJegong" parameterType="int" resultType="int">
+		select sum(j.debtor_value) - sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제공품'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+		
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_BaseJepumCnt" parameterType="int" resultType="int">
+		select count(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제품'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_BaseJepum" parameterType="int" resultType="int">
+		select sum(j.debtor_value) - sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name = '제품'
+		and to_char(j.journal_date, 'yyyy') = #{lastyear}
+		
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_BaseCostCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name != '감가상각비'
+		and a.accounts_name != '대손상각비'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_BaseCost" parameterType="int" resultType="int">
+		select sum(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.accounts_name != '감가상각비'
+		and a.accounts_name != '대손상각비'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_SaleProfitCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '매출이익'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_SaleProfit" parameterType="int" resultType="int">
+		select sum(j.creditor_value) - sum(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '매출이익'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_UnsaleProfitCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '기타수익'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 목록 -->
+	<select id="FT_UnsaleProfit" parameterType="int" resultType="int">
+		select sum(j.creditor_value) - sum(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '기타수익'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+		
+	</select>
+	
+	<!-- 결산자료 갯수 -->
+	<select id="FT_UnsaleCostCnt" parameterType="int" resultType="int">
+		select count(j.debtor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '영업외비용'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+	
+	<!-- 결산자료 목록 --> 
+	<select id="FT_UnsaleCost" parameterType="int" resultType="int">
+		select sum(j.debtor_value) - sum(j.creditor_value) from journal_record_tbl j, detail_ac_tbl d, accounts_tbl a, accounts_group_tbl ag
+		where j.detail_ac_code = d.detail_ac_code
+		and d.accounts_code = a.accounts_code
+		and a.ag_code2 = ag.ag_code
+		and ag.ag_name = '영업외비용'
+		and to_char(j.journal_date, 'yyyy') = #{year}
+	</select>
+</mapper>
